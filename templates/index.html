@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Weather Vision Classifier</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, "Segoe UI", Arial, sans-serif;
+      color: #17202a;
+      background: #eef3f7;
+    }
+    .shell {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0;
+    }
+    header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 22px;
+    }
+    h1 {
+      margin: 0 0 6px;
+      font-size: clamp(26px, 4vw, 42px);
+      line-height: 1.02;
+      letter-spacing: 0;
+    }
+    .subtitle {
+      margin: 0;
+      max-width: 680px;
+      color: #52616f;
+      line-height: 1.5;
+    }
+    .status {
+      flex: 0 0 auto;
+      display: grid;
+      align-content: start;
+      gap: 4px;
+      padding: 10px 12px;
+      border: 1px solid #d7e0e7;
+      border-radius: 8px;
+      background: #ffffff;
+      font-size: 12px;
+      color: #52616f;
+    }
+    .status strong { color: #17202a; }
+    main {
+      display: grid;
+      grid-template-columns: minmax(300px, 430px) 1fr;
+      gap: 18px;
+      align-items: start;
+    }
+    .panel {
+      background: #ffffff;
+      border: 1px solid #d7e0e7;
+      border-radius: 8px;
+      padding: 18px;
+    }
+    .upload-area {
+      display: grid;
+      place-items: center;
+      min-height: 260px;
+      border: 2px dashed #aab8c4;
+      border-radius: 8px;
+      background: #f8fafc;
+      color: #52616f;
+      cursor: pointer;
+      text-align: center;
+      transition: border-color 0.18s, background 0.18s;
+    }
+    .upload-area:hover,
+    .upload-area.dragover {
+      border-color: #1877b9;
+      background: #eef8ff;
+    }
+    .upload-copy {
+      display: grid;
+      gap: 8px;
+      justify-items: center;
+      padding: 18px;
+    }
+    .upload-icon {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: #dff1fb;
+      color: #0f6fa5;
+      font-size: 22px;
+      font-weight: 700;
+    }
+    #preview {
+      display: none;
+      width: 100%;
+      max-height: 340px;
+      object-fit: contain;
+      border-radius: 6px;
+      background: #101820;
+    }
+    #file-input { display: none; }
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    button {
+      border: 0;
+      border-radius: 8px;
+      padding: 11px 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.12s, background 0.18s, opacity 0.18s;
+    }
+    button:active { transform: translateY(1px); }
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+    .primary {
+      flex: 1;
+      color: #ffffff;
+      background: #1877b9;
+    }
+    .primary:hover:not(:disabled) { background: #105f96; }
+    .secondary {
+      color: #17202a;
+      background: #e8eef3;
+    }
+    .secondary:hover:not(:disabled) { background: #d9e3eb; }
+    .message {
+      min-height: 20px;
+      margin: 12px 0 0;
+      color: #b42318;
+      font-size: 13px;
+    }
+    .result-grid {
+      display: grid;
+      grid-template-columns: minmax(240px, 0.9fr) 1.1fr;
+      gap: 16px;
+    }
+    .empty-state {
+      min-height: 410px;
+      display: grid;
+      place-items: center;
+      color: #6b7c8d;
+      text-align: center;
+      line-height: 1.5;
+    }
+    .prediction {
+      display: none;
+    }
+    .hero-result {
+      padding-bottom: 14px;
+      border-bottom: 1px solid #e3e9ee;
+      margin-bottom: 14px;
+    }
+    .label {
+      margin: 0 0 4px;
+      font-size: clamp(28px, 4vw, 46px);
+      line-height: 1;
+      text-transform: capitalize;
+    }
+    .confidence {
+      margin: 0;
+      color: #52616f;
+      font-weight: 700;
+    }
+    .warning {
+      display: none;
+      margin: 12px 0 0;
+      padding: 10px;
+      border-radius: 8px;
+      color: #7a4100;
+      background: #fff2d7;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    .section-title {
+      margin: 0 0 10px;
+      color: #52616f;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+    .top-list {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+    .top-item,
+    .prob-row {
+      display: grid;
+      grid-template-columns: 92px 1fr 58px;
+      gap: 10px;
+      align-items: center;
+      font-size: 13px;
+    }
+    .top-item {
+      padding: 9px;
+      border-radius: 8px;
+      background: #f4f8fb;
+      font-weight: 700;
+    }
+    .class-name {
+      text-transform: capitalize;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .bar-wrap {
+      height: 9px;
+      border-radius: 999px;
+      background: #dce5ec;
+      overflow: hidden;
+    }
+    .bar {
+      height: 100%;
+      width: 0%;
+      border-radius: 999px;
+      background: #1f9d79;
+      transition: width 0.35s ease;
+    }
+    .pct {
+      text-align: right;
+      color: #17202a;
+      font-weight: 800;
+    }
+    .prob-list {
+      display: grid;
+      gap: 7px;
+      max-height: 360px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+    .gradcam {
+      display: none;
+    }
+    .gradcam img {
+      width: 100%;
+      border-radius: 8px;
+      border: 1px solid #d7e0e7;
+      background: #101820;
+    }
+    .gradcam p {
+      margin: 8px 0 0;
+      color: #52616f;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    @media (max-width: 860px) {
+      main,
+      .result-grid {
+        grid-template-columns: 1fr;
+      }
+      header {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .status { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div>
+        <h1>Weather Vision Classifier</h1>
+        <p class="subtitle">Upload a weather image and classify it across {{ classes|length }} trained categories with top predictions, confidence scores, and visual explanation.</p>
+      </div>
+      <div class="status">
+        <span>Model <strong>{{ model_file }}</strong></span>
+        <span>Classes <strong>{{ classes|length }}</strong></span>
+      </div>
+    </header>
+
+    <main>
+      <section class="panel">
+        <label class="upload-area" id="drop-zone" for="file-input">
+          <span class="upload-copy" id="upload-copy">
+            <span class="upload-icon">+</span>
+            <strong>Choose or drop a weather image</strong>
+            <span>JPG, PNG, JPEG, or WEBP up to 8 MB</span>
+          </span>
+          <img id="preview" alt="Uploaded preview">
+        </label>
+        <input type="file" id="file-input" accept="image/*">
+        <div class="actions">
+          <button class="primary" id="predict-btn" disabled>Predict</button>
+          <button class="secondary" id="reset-btn" disabled>Reset</button>
+        </div>
+        <p class="message" id="message"></p>
+      </section>
+
+      <section class="panel">
+        <div class="empty-state" id="empty-state">
+          <p>Select an image to see model predictions and explainability output.</p>
+        </div>
+
+        <div class="prediction" id="prediction">
+          <div class="result-grid">
+            <div>
+              <div class="hero-result">
+                <h2 class="label" id="pred-label"></h2>
+                <p class="confidence" id="pred-conf"></p>
+                <p class="warning" id="warning"></p>
+              </div>
+
+              <p class="section-title">Top predictions</p>
+              <div class="top-list" id="top-list"></div>
+            </div>
+
+            <div>
+              <div class="gradcam" id="gradcam-panel">
+                <p class="section-title">Model focus</p>
+                <img id="gradcam-img" alt="Grad-CAM heatmap">
+                <p>Red areas show the image regions that most influenced the predicted class.</p>
+              </div>
+            </div>
+          </div>
+
+          <p class="section-title">All class probabilities</p>
+          <div class="prob-list" id="prob-list"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const fileInput = document.getElementById("file-input");
+    const preview = document.getElementById("preview");
+    const uploadCopy = document.getElementById("upload-copy");
+    const dropZone = document.getElementById("drop-zone");
+    const predictBtn = document.getElementById("predict-btn");
+    const resetBtn = document.getElementById("reset-btn");
+    const message = document.getElementById("message");
+    const emptyState = document.getElementById("empty-state");
+    const prediction = document.getElementById("prediction");
+
+    let selectedFile = null;
+
+    fileInput.addEventListener("change", event => loadFile(event.target.files[0]));
+    predictBtn.addEventListener("click", predict);
+    resetBtn.addEventListener("click", reset);
+
+    dropZone.addEventListener("dragover", event => {
+      event.preventDefault();
+      dropZone.classList.add("dragover");
+    });
+    dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragover"));
+    dropZone.addEventListener("drop", event => {
+      event.preventDefault();
+      dropZone.classList.remove("dragover");
+      loadFile(event.dataTransfer.files[0]);
+    });
+
+    function loadFile(file) {
+      if (!file) return;
+      if (!file.type.startsWith("image/")) {
+        showMessage("Please upload an image file.");
+        return;
+      }
+      selectedFile = file;
+      const reader = new FileReader();
+      reader.onload = event => {
+        preview.src = event.target.result;
+        preview.style.display = "block";
+        uploadCopy.style.display = "none";
+        predictBtn.disabled = false;
+        resetBtn.disabled = false;
+        message.textContent = "";
+        prediction.style.display = "none";
+        emptyState.style.display = "grid";
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function predict() {
+      if (!selectedFile) return;
+      predictBtn.disabled = true;
+      predictBtn.textContent = "Predicting...";
+      message.textContent = "";
+
+      const body = new FormData();
+      body.append("file", selectedFile);
+
+      try {
+        const response = await fetch("/predict", { method: "POST", body });
+        const data = await response.json();
+        if (!response.ok || data.error) {
+          showMessage(data.error || "Prediction failed.");
+          return;
+        }
+        renderResult(data);
+      } catch (error) {
+        showMessage("Server error. Make sure the Flask app is running.");
+      } finally {
+        predictBtn.disabled = false;
+        predictBtn.textContent = "Predict";
+      }
+    }
+
+    function renderResult(data) {
+      emptyState.style.display = "none";
+      prediction.style.display = "block";
+
+      document.getElementById("pred-label").textContent = data.prediction;
+      document.getElementById("pred-conf").textContent = `${data.confidence}% confidence`;
+
+      const warning = document.getElementById("warning");
+      if (data.warning) {
+        warning.textContent = data.warning;
+        warning.style.display = "block";
+      } else {
+        warning.style.display = "none";
+      }
+
+      document.getElementById("top-list").innerHTML = data.top_predictions
+        .map(item => probabilityRow(item.class_name, item.confidence, "top-item"))
+        .join("");
+
+      document.getElementById("prob-list").innerHTML = Object.entries(data.all_probabilities)
+        .map(([name, confidence]) => probabilityRow(name, confidence, "prob-row"))
+        .join("");
+
+      const gradcamPanel = document.getElementById("gradcam-panel");
+      const gradcamImg = document.getElementById("gradcam-img");
+      if (data.gradcam) {
+        gradcamImg.src = data.gradcam;
+        gradcamPanel.style.display = "block";
+      } else {
+        gradcamPanel.style.display = "none";
+      }
+    }
+
+    function probabilityRow(name, confidence, className) {
+      return `
+        <div class="${className}">
+          <span class="class-name" title="${name}">${name}</span>
+          <span class="bar-wrap"><span class="bar" style="width:${confidence}%"></span></span>
+          <span class="pct">${confidence}%</span>
+        </div>
+      `;
+    }
+
+    function reset() {
+      selectedFile = null;
+      fileInput.value = "";
+      preview.removeAttribute("src");
+      preview.style.display = "none";
+      uploadCopy.style.display = "grid";
+      predictBtn.disabled = true;
+      resetBtn.disabled = true;
+      message.textContent = "";
+      prediction.style.display = "none";
+      emptyState.style.display = "grid";
+    }
+
+    function showMessage(text) {
+      message.textContent = text;
+    }
+  </script>
+</body>
+</html>
