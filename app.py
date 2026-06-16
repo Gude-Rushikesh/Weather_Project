@@ -3,6 +3,7 @@ import io
 import json
 import os
 from pathlib import Path
+from huggingface_hub import hf_hub_download
 
 import numpy as np
 import tensorflow as tf
@@ -71,14 +72,24 @@ def load_weather_model():
                     path.name,
                 )
             return tf.keras.models.load_model(path, compile=False), path.name
-    raise FileNotFoundError(
-        "No model file found. Train the model first to create weather_model.keras."
+
+    hf_model_path = hf_hub_download(
+        repo_id="Master2316/Rushikesh-weather-vision-model",
+        filename="weather_model.h5",
     )
 
-
-MODEL, MODEL_FILE = load_weather_model()
-CLASS_NAMES = load_class_names()
-USE_MOBILENET_PREPROCESSING = MODEL_FILE.endswith(".keras")
+    return (
+        tf.keras.models.load_model(
+            hf_model_path,
+            custom_objects={
+                "BatchNormalization": LegacyBatchNormalization,
+                "Dense": LegacyDense,
+                "Conv2D": LegacyConv2D,
+            },
+            compile=False,
+        ),
+        "weather_model.h5 (HF)",
+    )
 
 
 def allowed_file(filename):
