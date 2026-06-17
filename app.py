@@ -91,6 +91,10 @@ def load_weather_model():
         "weather_model.h5 (HF)",
     )
 
+MODEL, MODEL_FILE = load_weather_model()
+CLASS_NAMES = load_class_names()
+USE_MOBILENET_PREPROCESSING = MODEL_FILE.endswith(".keras")
+
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
