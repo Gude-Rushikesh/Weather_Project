@@ -1,4 +1,6 @@
 weather_model.h5
+weather_model_backup_h5
+weather_model_backup.h5
 weather_model.keras
 dataset/
 artifacts/

@@ -91,7 +91,6 @@ def load_weather_model():
         "weather_model.h5 (HF)",
     )
 
-
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
