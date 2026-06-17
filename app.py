@@ -13,8 +13,7 @@ from PIL import Image, UnidentifiedImageError
 
 ROOT_DIR = Path(__file__).resolve().parent
 MODEL_PATHS = [
-    ROOT_DIR / "weather_model.keras",
-    ROOT_DIR / "weather_model.h5",
+    ROOT_DIR / "best_weather_model.keras",
 ]
 CLASS_NAMES_PATH = ROOT_DIR / "class_names.json"
 IMG_SIZE = (224, 224)
@@ -22,7 +21,7 @@ ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
 LOW_CONFIDENCE_THRESHOLD = 60.0
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024
+app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 
 
@@ -75,7 +74,7 @@ def load_weather_model():
 
     hf_model_path = hf_hub_download(
         repo_id="Master2316/Rushikesh-weather-vision-model",
-        filename="weather_model.h5",
+        filename="best_weather_model.keras",
     )
 
     return (
