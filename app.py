@@ -2,6 +2,8 @@ import base64
 import io
 import json
 import os
+import tempfile
+import zipfile
 from pathlib import Path
 from huggingface_hub import hf_hub_download
 
@@ -13,6 +15,7 @@ from PIL import Image, UnidentifiedImageError
 
 ROOT_DIR = Path(__file__).resolve().parent
 MODEL_PATHS = [
+    ROOT_DIR / "weather_model.keras",
     ROOT_DIR / "best_weather_model.keras",
 ]
 CLASS_NAMES_PATH = ROOT_DIR / "class_names.json"
@@ -54,41 +57,68 @@ class LegacyConv2D(tf.keras.layers.Conv2D):
         return super().from_config(config)
 
 
+def remove_unsupported_keras_config(value):
+    if isinstance(value, dict):
+        for key in (
+            "quantization_config",
+            "renorm",
+            "renorm_clipping",
+            "renorm_momentum",
+        ):
+            value.pop(key, None)
+        for child in value.values():
+            remove_unsupported_keras_config(child)
+    elif isinstance(value, list):
+        for child in value:
+            remove_unsupported_keras_config(child)
+
+
+def sanitized_keras_archive(path):
+    path = Path(path)
+    temp_file = tempfile.NamedTemporaryFile(suffix=".keras", delete=False)
+    temp_path = Path(temp_file.name)
+    temp_file.close()
+
+    with zipfile.ZipFile(path, "r") as source, zipfile.ZipFile(temp_path, "w") as target:
+        for item in source.infolist():
+            data = source.read(item.filename)
+            if item.filename == "config.json":
+                config = json.loads(data.decode("utf-8"))
+                remove_unsupported_keras_config(config)
+                data = json.dumps(config).encode("utf-8")
+            target.writestr(item, data)
+
+    return temp_path
+
+
+def load_model_compat(path):
+    custom_objects = {
+        "BatchNormalization": LegacyBatchNormalization,
+        "Dense": LegacyDense,
+        "Conv2D": LegacyConv2D,
+    }
+    temporary_path = None
+    if Path(path).suffix == ".keras":
+        temporary_path = sanitized_keras_archive(path)
+        path = temporary_path
+    try:
+        return tf.keras.models.load_model(path, custom_objects=custom_objects, compile=False)
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
+
+
 def load_weather_model():
     for path in MODEL_PATHS:
         if path.exists():
-            if path.suffix == ".h5":
-                return (
-                    tf.keras.models.load_model(
-                        path,
-                        custom_objects={
-                            "BatchNormalization": LegacyBatchNormalization,
-                            "Dense": LegacyDense,
-                            "Conv2D": LegacyConv2D,
-                        },
-                        compile=False,
-                    ),
-                    path.name,
-                )
-            return tf.keras.models.load_model(path, compile=False), path.name
+            return load_model_compat(path), path.name
 
     hf_model_path = hf_hub_download(
         repo_id="Master2316/Rushikesh-weather-vision-model",
         filename="best_weather_model.keras",
     )
 
-    return (
-        tf.keras.models.load_model(
-            hf_model_path,
-            custom_objects={
-                "BatchNormalization": LegacyBatchNormalization,
-                "Dense": LegacyDense,
-                "Conv2D": LegacyConv2D,
-            },
-            compile=False,
-        ),
-        "weather_model.h5 (HF)",
-    )
+    return load_model_compat(hf_model_path), "best_weather_model.keras (HF)"
 
 MODEL, MODEL_FILE = load_weather_model()
 CLASS_NAMES = load_class_names()
